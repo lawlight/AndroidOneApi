@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="top.onehundred.android.onekit.demo.MainActivity">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/btn_app"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="AppKit/SystemKit(应用信息和系统信息)"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_datetime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="DatetimeKit(时间日期工具)"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_density"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="DensityKit(像素密度单位转换工具)"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_dialog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="DialogKit(对话框工具)"
+                android:textAllCaps="false" />
+
+
+            <Button
+                android:id="@+id/btn_intents"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="IntentKit(系统应用跳转工具)"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_encytpt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="EncryptKit(加密解密工具)"
+                android:textAllCaps="false" />
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>
