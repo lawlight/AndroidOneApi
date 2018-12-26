@@ -1,1 +1,1 @@
-include ':app', ':onekit'
+include ':app', ':oneapi'
