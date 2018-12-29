@@ -1,7 +1,5 @@
 package top.onehundred.android.oneapi;
 
-import android.app.Application;
-import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -9,12 +7,9 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.CookieManager;
-import java.net.CookiePolicy;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
@@ -27,9 +22,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import top.onehundred.android.oneapi.utils.ACache;
 
-public class OneAPI implements IOneAPI, OneAPIListener {
+public abstract class OneAPI implements IOneAPI, APIListener {
 
     public static final String MEDIA_TYPE_JSON = "application/json; charset=utf-8";
 
@@ -37,12 +31,10 @@ public class OneAPI implements IOneAPI, OneAPIListener {
 
     private static final int CODE_ERROR = -1;
 
-    private static Context context;
-
     private static OkHttpClient mOkHttpClient;
     private Call call;
 
-    private OneAPIListener listener;
+    private APIListener listener;
 
     private boolean isTest = false;
 
@@ -50,8 +42,8 @@ public class OneAPI implements IOneAPI, OneAPIListener {
 
     private boolean isCancel = false;
 
-    private String cacheMark;
-    private int cacheTime = 0;
+    private int timeout = TIMEOUT;
+
 
     private boolean isMultipartForm;
 
@@ -63,21 +55,11 @@ public class OneAPI implements IOneAPI, OneAPIListener {
     private HashMap<String, String> mHeaders = new HashMap<>();
 
     public OneAPI() {
-        this.context = context;
         if (mOkHttpClient == null) {
             mOkHttpClient = new OkHttpClient.Builder()
                     .connectTimeout(TIMEOUT, TimeUnit.SECONDS)
                     .build();
         }
-    }
-
-    @Override
-    public Context getContext() {
-        return context;
-    }
-
-    public static void init(Application application) {
-        OneAPI.context = application;
     }
 
     @Override
@@ -90,68 +72,50 @@ public class OneAPI implements IOneAPI, OneAPIListener {
         this.isDebug = debug;
     }
 
-    @Override
-    public String getHostname() {
-        return null;
-    }
+    public abstract String getHostname();
 
-    @Override
-    public String getUrl() {
-        return null;
-    }
+    public abstract String getUrl();
 
-    @Override
-    public void putInputs() throws Exception {
+    public abstract void putInputs();
 
-    }
-
-    @Override
     public void putHeader(String key, String value) {
         mHeaders.put(key, value);
     }
 
-    @Override
-    public void putParam(String key, Object value) {
+    public void putField(String key, Object value) {
         mParams.put(key, value);
         if (value instanceof File) {
             isMultipartForm = true;
         }
     }
 
-    @Override
+    /**
+     *
+     * @param mediaType text/plain
+     *                  application/json
+     *                  application/javascript
+     *                  application/xml
+     *                  text/
+     * @param raw
+     */
     public void putRaw(String mediaType, String raw) {
         this.mediaType = mediaType;
         this.raw = raw;
     }
 
     @Override
-    public void get(OneAPIListener listener) {
+    public void get(APIListener listener) {
         if (doStart(listener)) {
             Request request = new Request.Builder()
                     .url(getGetUrl())
                     .get()
                     .build();
-            //尝试从缓存中读取
-            if (cacheMark != null) {
-                String data = ACache.get(getContext()).getAsString(cacheMark);
-                if (data != null) {
-                    log("read from cache: " + data);
-                    try {
-                        parseOutput(data);
-                        onSuccess();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        onError(CODE_ERROR, "cache parseOutput exception：" + e.getMessage());
-                    }
-                    return;
-                }
-            }
             call(request);
         }
     }
 
     @Override
-    public void post(OneAPIListener listener) {
+    public void post(APIListener listener) {
         if (doStart(listener)) {
             Request.Builder builder = new Request.Builder();
             builder.url(getHostname() + getUrl());
@@ -168,7 +132,7 @@ public class OneAPI implements IOneAPI, OneAPIListener {
     }
 
     @Override
-    public void delete(OneAPIListener listener) {
+    public void delete(APIListener listener) {
         if (doStart(listener)) {
             Request.Builder builder = new Request.Builder();
             builder.url(getHostname() + getUrl());
@@ -184,7 +148,7 @@ public class OneAPI implements IOneAPI, OneAPIListener {
     }
 
     @Override
-    public void put(OneAPIListener listener) {
+    public void put(APIListener listener) {
         if (doStart(listener)) {
             Request request = new Request.Builder()
                     .url(getHostname() + getUrl())
@@ -200,12 +164,10 @@ public class OneAPI implements IOneAPI, OneAPIListener {
      *
      * @param listener
      */
-    private boolean doStart(OneAPIListener listener) {
+    private boolean doStart(APIListener listener) {
         this.listener = listener;
         this.isCancel = false;
         this.isMultipartForm = false;
-
-        this.cacheMark = null;
 
         mHeaders.clear();
         mParams.clear();
@@ -249,25 +211,16 @@ public class OneAPI implements IOneAPI, OneAPIListener {
     }
 
     @Override
-    public void setCacheTime(int cacheTime) {
-        this.cacheTime = cacheTime;
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+        mOkHttpClient.newBuilder().connectTimeout(timeout, TimeUnit.SECONDS);
     }
 
-    @Override
-    public void clearCache() {
-        ACache aCache = ACache.get(getContext());
-        aCache.remove(this.getClass().getName());
-    }
-
-    @Override
     public String filterOutput(String output) throws Exception {
         return output;
     }
 
-    @Override
-    public void parseOutput(String output) throws Exception {
-
-    }
+    public abstract void parseOutput(String output) throws Exception;
 
     private String getGetUrl() {
         String paramsStr = "";
@@ -288,10 +241,6 @@ public class OneAPI implements IOneAPI, OneAPIListener {
             } else {
                 url = url + "?" + paramsStr;
             }
-        }
-        //以url为缓存的标志
-        if (cacheTime > 0) {
-            cacheMark = url;
         }
         return url;
     }
@@ -375,10 +324,6 @@ public class OneAPI implements IOneAPI, OneAPIListener {
                 String output = response.body().string();
                 try {
                     output = filterOutput(output);
-                    if (cacheMark != null) {
-                        log("save cache for " + cacheTime + " second!");
-                        ACache.get(getContext()).put(cacheMark, output, cacheTime);
-                    }
                     parseOutput(output);
                     onSuccess();
                 } catch (Exception e) {

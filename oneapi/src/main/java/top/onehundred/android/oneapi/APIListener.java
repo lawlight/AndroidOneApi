@@ -1,6 +1,6 @@
 package top.onehundred.android.oneapi;
 
-public interface OneAPIListener {
+public interface APIListener {
 
     void onSuccess();
 
