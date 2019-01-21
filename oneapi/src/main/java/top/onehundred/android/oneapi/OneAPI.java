@@ -23,6 +23,9 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+/**
+ * OneAPI
+ */
 public abstract class OneAPI implements IOneAPI, APIListener {
 
     public static final String MEDIA_TYPE_JSON = "application/json; charset=utf-8";
