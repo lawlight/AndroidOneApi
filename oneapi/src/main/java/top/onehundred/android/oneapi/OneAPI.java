@@ -7,6 +7,7 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -23,9 +24,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * OneAPI
- */
 public abstract class OneAPI implements IOneAPI, APIListener {
 
     public static final String MEDIA_TYPE_JSON = "application/json; charset=utf-8";
@@ -75,21 +73,25 @@ public abstract class OneAPI implements IOneAPI, APIListener {
         this.isDebug = debug;
     }
 
-    public abstract String getHostname();
+    protected abstract String getHostname();
 
-    public abstract String getUrl();
+    protected abstract String getUrl();
 
-    public abstract void putInputs();
+    protected abstract void putInputs();
 
     public void putHeader(String key, String value) {
         mHeaders.put(key, value);
     }
 
-    public void putField(String key, Object value) {
+    protected void putField(String key, Object value) {
         mParams.put(key, value);
         if (value instanceof File) {
             isMultipartForm = true;
         }
+    }
+
+    protected void putFields(Map fields){
+        mParams.putAll(fields);
     }
 
     /**
@@ -101,7 +103,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
      *                  text/
      * @param raw
      */
-    public void putRaw(String mediaType, String raw) {
+    protected void putRaw(String mediaType, String raw) {
         this.mediaType = mediaType;
         this.raw = raw;
     }
@@ -121,6 +123,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
     public void post(APIListener listener) {
         if (doStart(listener)) {
             Request.Builder builder = new Request.Builder();
+            builder.tag(new Date().getTime());
             builder.url(getHostname() + getUrl());
             builder.headers(getHeaders());
             if (isMultipartForm) {
@@ -140,7 +143,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
             Request.Builder builder = new Request.Builder();
             builder.url(getHostname() + getUrl());
             builder.headers(getHeaders());
-            FormBody rb = getRequestBody();
+            FormBody rb = (FormBody) getRequestBody();
             if (rb.size() == 0) {
                 builder.delete();
             } else {
@@ -177,6 +180,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
 
         try {
             //加载入参
+            log("inputs:");
             putInputs();
         } catch (Exception e) {
             e.printStackTrace();
@@ -201,12 +205,12 @@ public abstract class OneAPI implements IOneAPI, APIListener {
             }.start();
             return false;
         }
-
         return true;
     }
 
     @Override
     public void cancel() {
+        log("cancel request!");
         this.isCancel = true;
         if (call != null) {
             call.cancel();
@@ -219,11 +223,11 @@ public abstract class OneAPI implements IOneAPI, APIListener {
         mOkHttpClient.newBuilder().connectTimeout(timeout, TimeUnit.SECONDS);
     }
 
-    public String filterOutput(String output) throws Exception {
+    protected String filterOutput(String output) throws Exception {
         return output;
     }
 
-    public abstract void parseOutput(String output) throws Exception;
+    protected abstract void parseOutput(String output) throws Exception;
 
     private String getGetUrl() {
         String paramsStr = "";
@@ -248,7 +252,8 @@ public abstract class OneAPI implements IOneAPI, APIListener {
         return url;
     }
 
-    private FormBody getRequestBody() {
+    private RequestBody getRequestBody() {
+        log("fields:");
         FormBody.Builder builder = new FormBody.Builder();
         Iterator iter = mParams.entrySet().iterator();
         while (iter.hasNext()) {
@@ -265,6 +270,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
     }
 
     private RequestBody getMultipartBody() {
+        log("parts:");
         Iterator iter = mParams.entrySet().iterator();
         MultipartBody.Builder builder = new MultipartBody.Builder();
         while (iter.hasNext()) {
@@ -291,6 +297,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
     private RequestBody getRawBody() {
         MediaType mt = MediaType.parse(mediaType);
         RequestBody body = RequestBody.create(mt, raw);
+        log("raw:" + raw);
         return body;
     }
 
@@ -300,6 +307,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
      * @return
      */
     private Headers getHeaders() {
+        log("headers:");
         Headers.Builder builder = new Headers.Builder();
         Iterator iter = mHeaders.entrySet().iterator();
         while (iter.hasNext()) {
@@ -310,11 +318,13 @@ public abstract class OneAPI implements IOneAPI, APIListener {
             }
             String val = entry.getValue().toString();
             builder.add(key, val);
+            log(key + ":" + val.toString());
         }
         return builder.build();
     }
 
     private void call(Request request) {
+        log("开始请求：" + request.toString());
         call = mOkHttpClient.newCall(request);
         call.enqueue(new Callback() {
             @Override
@@ -325,12 +335,14 @@ public abstract class OneAPI implements IOneAPI, APIListener {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 String output = response.body().string();
+                log("请求返回：" + output);
                 try {
                     output = filterOutput(output);
                     parseOutput(output);
                     onSuccess();
                 } catch (Exception e) {
                     e.printStackTrace();
+                    onError(CODE_ERROR, e.getMessage());
                 }
             }
         });
@@ -358,7 +370,7 @@ public abstract class OneAPI implements IOneAPI, APIListener {
     @Override
     public void onError(int code, String message) {
         isCancel = true;
-        handler.obtainMessage(0, code, 0, message);
+        handler.obtainMessage(0, code, 0, message).sendToTarget();
     }
 
     Handler handler = new Handler(Looper.getMainLooper()) {
